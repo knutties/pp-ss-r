@@ -10,6 +10,7 @@ pub fn app_config(cfg: &mut web::ServiceConfig) {
     cfg.route("/healthz", web::get().to(healthz));
     cfg.route("/", web::get().to(index));
     cfg.route("/order/{id}", web::get().to(order));
+    cfg.service(actix_files::Files::new("/assets", "static"));
 }
 
 async fn healthz() -> HttpResponse {
