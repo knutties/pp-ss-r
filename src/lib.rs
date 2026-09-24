@@ -72,14 +72,45 @@ async fn healthz() -> HttpResponse {
 }
 
 /// Data endpoint: returns the order as JSON. `?delay_ms=` sleeps first to
-/// simulate a slow upstream.
-async fn api_order(path: web::Path<String>, q: web::Query<DelayQuery>) -> HttpResponse {
-    if let Some(ms) = q.delay_ms {
-        actix_web::rt::time::sleep(Duration::from_millis(ms)).await;
+/// simulate a slow upstream. Emits a JSON request log with a `delay_ms` /
+/// `serialize_ms` / `total_ms` breakdown.
+async fn api_order(
+    req: HttpRequest,
+    path: web::Path<String>,
+    q: web::Query<DelayQuery>,
+) -> HttpResponse {
+    let start = Instant::now();
+    let delay_ms = q.delay_ms.unwrap_or(0);
+    if delay_ms > 0 {
+        actix_web::rt::time::sleep(Duration::from_millis(delay_ms)).await;
     }
+
     let mut page = sample().clone();
     page.process.order_id = path.into_inner();
-    HttpResponse::Ok().json(&page)
+
+    let serialize_start = Instant::now();
+    let body = serde_json::to_string(&page).unwrap_or_else(|_| "{}".to_string());
+    let serialize_ms = serialize_start.elapsed().as_secs_f64() * 1000.0;
+
+    let bytes = body.len();
+    let status = 200u16;
+    let total_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    tracing::info!(
+        ts_ms = now_ms(),
+        method = %req.method(),
+        path = %req.path(),
+        status,
+        delay_ms,
+        serialize_ms,
+        total_ms,
+        bytes,
+        "request"
+    );
+
+    HttpResponse::Ok()
+        .content_type("application/json")
+        .body(body)
 }
 
 async fn index(

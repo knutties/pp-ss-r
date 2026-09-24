@@ -94,6 +94,11 @@ plus `render_ms` and `total_ms`; the local `/pay` reports `load_ms` instead:
      "path":"/order/abc","status":200,"fetch_ms":0.63,"render_ms":0.0022,
      "total_ms":0.63,"bytes":1597,"target":"pp_ss_r"}
 
+The data endpoint `/api/orders/{id}` logs its own line with `delay_ms`
+(simulated wait) and `serialize_ms` (JSON encoding). A single page load thus
+emits two lines — the data-side timing and the render-side `fetch_ms` — whose
+difference is the HTTP round-trip overhead.
+
 Control verbosity with `RUST_LOG` (default `info,actix_server::worker=warn`):
 
     RUST_LOG=debug cargo run
