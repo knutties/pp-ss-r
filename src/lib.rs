@@ -95,5 +95,16 @@ fn timed_html(
 
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
+        // A card-entry page must never be cached, and should not leak its URL or
+        // be sniffed. All assets are same-origin, so a strict CSP is safe.
+        .insert_header(("Cache-Control", "no-store"))
+        .insert_header(("X-Content-Type-Options", "nosniff"))
+        .insert_header(("Referrer-Policy", "no-referrer"))
+        .insert_header((
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'none'; style-src 'self'; \
+             img-src 'self'; font-src 'self'; form-action 'self'; \
+             base-uri 'none'; frame-ancestors 'none'",
+        ))
         .body(body)
 }
