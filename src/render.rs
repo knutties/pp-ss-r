@@ -18,6 +18,34 @@ pub fn lang_code(language: &str) -> &'static str {
     }
 }
 
+pub fn render_confirmation(page: &PaymentPage) -> Markup {
+    let amount_display = format_amount(&page.process.currency, &page.process.amount);
+    html! {
+        (DOCTYPE)
+        html lang=(lang_code(&page.init.language)) {
+            head {
+                meta charset="utf-8";
+                meta name="viewport" content="width=device-width, initial-scale=1";
+                title { "Payment received" }
+                link rel="stylesheet" href="/assets/style.css";
+            }
+            body {
+                header.pp-header {
+                    img.pp-logo src="/assets/img/barclaycard-logo.png" alt="Barclaycard";
+                }
+                main.pp-main {
+                    section.pp-summary {
+                        h1.pp-title { "Payment received (demo)" }
+                        p.pp-amount { (amount_display) }
+                        p.pp-order-id { "Order: " (page.process.order_id) }
+                        p { "This is a demo confirmation. No real payment was processed." }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn render_payment_page(page: &PaymentPage) -> Markup {
     let amount_display = format_amount(&page.process.currency, &page.process.amount);
     html! {
