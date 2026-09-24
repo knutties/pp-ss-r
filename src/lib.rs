@@ -1,10 +1,11 @@
 use actix_web::{web, HttpRequest, HttpResponse};
+use std::borrow::Cow;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub mod model;
 pub mod render;
 
-use crate::model::{load_sample, PaymentPage};
+use crate::model::{sample, PaymentPage};
 use crate::render::{render_confirmation, render_payment_page};
 
 /// Address the server binds to. Defaults to `127.0.0.1:8080`; override via the
@@ -32,7 +33,9 @@ async fn healthz() -> HttpResponse {
 }
 
 async fn index(req: HttpRequest) -> HttpResponse {
-    timed_html(&req, load_sample, |p| render_payment_page(p).into_string())
+    timed_html(&req, || Cow::Borrowed(sample()), |p| {
+        render_payment_page(p).into_string()
+    })
 }
 
 async fn order(req: HttpRequest, path: web::Path<String>) -> HttpResponse {
@@ -40,16 +43,18 @@ async fn order(req: HttpRequest, path: web::Path<String>) -> HttpResponse {
     timed_html(
         &req,
         move || {
-            let mut page = load_sample();
+            let mut page = sample().clone();
             page.process.order_id = id;
-            page
+            Cow::Owned(page)
         },
         |p| render_payment_page(p).into_string(),
     )
 }
 
 async fn pay(req: HttpRequest) -> HttpResponse {
-    timed_html(&req, load_sample, |p| render_confirmation(p).into_string())
+    timed_html(&req, || Cow::Borrowed(sample()), |p| {
+        render_confirmation(p).into_string()
+    })
 }
 
 /// Loads the payload, renders it, and emits one structured JSON log line with a
@@ -57,11 +62,11 @@ async fn pay(req: HttpRequest) -> HttpResponse {
 /// (HTML generation), and `total_ms` (whole handler).
 fn timed_html(
     req: &HttpRequest,
-    load: impl FnOnce() -> PaymentPage,
+    prepare: impl FnOnce() -> Cow<'static, PaymentPage>,
     render: impl FnOnce(&PaymentPage) -> String,
 ) -> HttpResponse {
     let start = Instant::now();
-    let page = load();
+    let page = prepare();
     let load_ms = start.elapsed().as_secs_f64() * 1000.0;
 
     let render_start = Instant::now();
