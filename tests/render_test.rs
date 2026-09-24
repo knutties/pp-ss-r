@@ -24,6 +24,15 @@ fn page_contains_amount_and_fields() {
 }
 
 #[test]
+fn order_id_is_html_escaped() {
+    let mut page = load_sample();
+    page.process.order_id = "ord_<b>x".to_string();
+    let html = render_payment_page(&page).into_string();
+    assert!(html.contains("ord_&lt;b&gt;x"), "angle brackets must be escaped");
+    assert!(!html.contains("ord_<b>x"), "must not emit raw tags");
+}
+
+#[test]
 fn empty_description_is_omitted() {
     let mut page = load_sample();
     page.process.description = String::new();

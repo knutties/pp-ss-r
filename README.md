@@ -36,11 +36,47 @@ system Chrome on darwin, nixpkgs chromium on Linux):
 
 ## Routes
 
-- `GET  /`             payment page (sample order)
-- `GET  /order/{id}`   payment page with the given order id
-- `POST /pay`          demo confirmation (no processing)
-- `GET  /healthz`      health check
-- `GET  /assets/*`     static files (css, fonts, images)
+- `GET  /`                 payment page (fetches the default order)
+- `GET  /order/{id}`       payment page for the given order id
+- `POST /pay`              demo confirmation (rendered locally, no processing)
+- `GET  /api/orders/{id}`  order data as JSON (the data service)
+- `GET  /healthz`          health check
+- `GET  /assets/*`         static files (css, fonts, images)
+
+## Data fetch
+
+The render service and the data live behind separate endpoints. The page
+handlers (`/`, `/order/{id}`) **fetch** order JSON over HTTP from
+`{DATA_BASE_URL}/api/orders/{id}` (via a shared `reqwest` client) and then
+render it. By default `DATA_BASE_URL=http://127.0.0.1:8080`, so the server
+serves its own data; point it at a real data service to split them:
+
+    DATA_BASE_URL=https://orders.internal cargo run
+
+Add `?delay_ms=<n>` to simulate a slow upstream — the API sleeps that long and
+the page's `fetch_ms` reflects it:
+
+    curl "http://127.0.0.1:8080/order/abc?delay_ms=250"   # fetch_ms ~250
+
+`delay_ms` is clamped to 30s (`MAX_DELAY_MS`) so a stray large value can't tie
+up a worker.
+
+A failed/timed-out fetch renders a `502` error page. (reqwest is HTTP-only here;
+enable its `rustls-tls` feature to fetch external HTTPS.)
+
+## Docker
+
+    docker build -t pp-ss-r .
+    docker run -p 8080:8080 pp-ss-r        # http://127.0.0.1:8080
+
+Multi-stage build (Rust → `debian:bookworm-slim`), runs as non-root. In the
+container `BIND_ADDR=0.0.0.0:8080` and `DATA_BASE_URL=http://127.0.0.1:8080`.
+
+## CI
+
+`.github/workflows/docker.yml` builds and pushes to
+`ghcr.io/<owner>/<repo>` on every push to `main`, tagged with a CalVer
+minute-granularity version (`YYYY.MM.DD.HHMM`), `sha-<short>`, and `latest`.
 
 ## Layout
 
@@ -54,12 +90,17 @@ system Chrome on darwin, nixpkgs chromium on Linux):
 ## Logging
 
 Each rendered request emits one JSON line to stdout with a per-phase timing
-breakdown (`load_ms` = payload deserialization, `render_ms` = HTML generation,
-`total_ms` = whole handler):
+breakdown. Fetched pages (`/`, `/order/{id}`) report `fetch_ms` (data fetch)
+plus `render_ms` and `total_ms`; the local `/pay` reports `load_ms` instead:
 
     {"level":"INFO","message":"request","ts_ms":1790271702087,"method":"GET",
-     "path":"/","status":200,"load_ms":0.0097,"render_ms":0.0022,
-     "total_ms":0.0120,"bytes":1597,"target":"pp_ss_r"}
+     "path":"/order/abc","status":200,"fetch_ms":0.63,"render_ms":0.0022,
+     "total_ms":0.63,"bytes":1597,"target":"pp_ss_r"}
+
+The data endpoint `/api/orders/{id}` logs its own line with `delay_ms`
+(simulated wait) and `serialize_ms` (JSON encoding). A single page load thus
+emits two lines — the data-side timing and the render-side `fetch_ms` — whose
+difference is the HTTP round-trip overhead.
 
 Control verbosity with `RUST_LOG` (default `info,actix_server::worker=warn`):
 

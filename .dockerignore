@@ -1,0 +1,9 @@
+target/
+.git/
+.direnv/
+result
+scratch/
+docs/
+.github/
+.superpowers/
+*.md

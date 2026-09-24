@@ -40,6 +40,19 @@ fn layout(title: &str, lang: &str, content: Markup) -> Markup {
     }
 }
 
+/// Rendered when the order data can't be fetched from the data service.
+pub fn render_error() -> Markup {
+    let content = html! {
+        main.pp-main {
+            section.pp-summary {
+                h1.pp-title { "We couldn't load this order" }
+                p { "Something went wrong fetching the payment details. Please try again." }
+            }
+        }
+    };
+    layout("Something went wrong", "en", content)
+}
+
 pub fn render_confirmation(page: &PaymentPage) -> Markup {
     let amount_display = format_amount(&page.process.currency, &page.process.amount);
     let content = html! {

@@ -33,6 +33,14 @@ fmt:
 lint:
     nix develop --command cargo clippy --all-targets
 
+# Build the Docker image
+docker-build tag="pp-ss-r":
+    docker build -t {{tag}} .
+
+# Run the Docker image (maps host port -> container 8080)
+docker-run tag="pp-ss-r" port="8080":
+    docker run --rm -p {{port}}:8080 {{tag}}
+
 # Screenshot the running server (server must be running on the given port)
 shot port="8080":
     nix develop --command bash -c 'mkdir -p scratch && "$CHROME_BIN" --headless --disable-gpu --screenshot=scratch/home.png --window-size=480,900 http://127.0.0.1:{{port}}'

@@ -42,33 +42,32 @@ fn capture_buffer() -> Arc<Mutex<Vec<u8>>> {
 }
 
 #[actix_web::test]
-async fn logs_request_json_with_timing_breakdown() {
+async fn api_request_is_logged_with_timing() {
     let buf = capture_buffer();
     buf.lock().unwrap().clear();
 
     let app = test::init_service(App::new().configure(app_config)).await;
-    // /pay renders locally (no fetch) and logs the load_ms/render_ms breakdown.
-    let req = test::TestRequest::post().uri("/pay").to_request();
+    let req = test::TestRequest::get()
+        .uri("/api/orders/log_me?delay_ms=30")
+        .to_request();
     let _ = test::call_service(&app, req).await;
 
     let text = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
     let line = text
         .lines()
-        .find(|l| l.contains("\"message\":\"request\""))
-        .expect("a JSON request log line must be emitted");
+        .find(|l| l.contains("\"message\":\"request\"") && l.contains("/api/orders/log_me"))
+        .expect("an /api request log line must be emitted");
 
     let v: serde_json::Value = serde_json::from_str(line).expect("log line must be valid JSON");
-    assert_eq!(v["message"].as_str(), Some("request"));
-    assert_eq!(v["method"].as_str(), Some("POST"));
-    assert_eq!(v["path"].as_str(), Some("/pay"));
+    assert_eq!(v["method"].as_str(), Some("GET"));
+    assert_eq!(v["path"].as_str(), Some("/api/orders/log_me"));
     assert_eq!(v["status"].as_u64(), Some(200));
-    assert!(v["load_ms"].is_number(), "load_ms present and numeric");
-    assert!(v["render_ms"].is_number(), "render_ms present and numeric");
-    assert!(v["total_ms"].is_number(), "total_ms present and numeric");
-    assert!(v["ts_ms"].is_number(), "ts_ms present and numeric");
+    assert_eq!(v["delay_ms"].as_u64(), Some(30), "requested delay is recorded");
+    assert!(v["serialize_ms"].is_number(), "serialize_ms present");
+    assert!(v["total_ms"].is_number(), "total_ms present");
     assert!(v["bytes"].as_u64().unwrap() > 0, "bytes reflects body length");
     assert!(
-        v["total_ms"].as_f64().unwrap() >= v["render_ms"].as_f64().unwrap(),
-        "total time covers render time"
+        v["total_ms"].as_f64().unwrap() >= 25.0,
+        "total_ms includes the simulated delay"
     );
 }
