@@ -6,6 +6,16 @@ pub mod render;
 use crate::model::load_sample;
 use crate::render::{render_confirmation, render_payment_page};
 
+/// Address the server binds to. Defaults to `127.0.0.1:8080`; override via the
+/// `BIND_ADDR` environment variable (used for e2e when 8080 is occupied).
+pub fn bind_addr() -> String {
+    bind_addr_from(std::env::var("BIND_ADDR").ok())
+}
+
+pub fn bind_addr_from(override_addr: Option<String>) -> String {
+    override_addr.unwrap_or_else(|| "127.0.0.1:8080".to_string())
+}
+
 pub fn app_config(cfg: &mut web::ServiceConfig) {
     cfg.route("/healthz", web::get().to(healthz));
     cfg.route("/", web::get().to(index));
