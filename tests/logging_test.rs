@@ -47,7 +47,8 @@ async fn logs_request_json_with_timing_breakdown() {
     buf.lock().unwrap().clear();
 
     let app = test::init_service(App::new().configure(app_config)).await;
-    let req = test::TestRequest::get().uri("/").to_request();
+    // /pay renders locally (no fetch) and logs the load_ms/render_ms breakdown.
+    let req = test::TestRequest::post().uri("/pay").to_request();
     let _ = test::call_service(&app, req).await;
 
     let text = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
@@ -58,8 +59,8 @@ async fn logs_request_json_with_timing_breakdown() {
 
     let v: serde_json::Value = serde_json::from_str(line).expect("log line must be valid JSON");
     assert_eq!(v["message"].as_str(), Some("request"));
-    assert_eq!(v["method"].as_str(), Some("GET"));
-    assert_eq!(v["path"].as_str(), Some("/"));
+    assert_eq!(v["method"].as_str(), Some("POST"));
+    assert_eq!(v["path"].as_str(), Some("/pay"));
     assert_eq!(v["status"].as_u64(), Some(200));
     assert!(v["load_ms"].is_number(), "load_ms present and numeric");
     assert!(v["render_ms"].is_number(), "render_ms present and numeric");

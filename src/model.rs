@@ -1,12 +1,12 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentPage {
     pub init: InitPayload,
     pub process: ProcessPayload,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitPayload {
     pub client_auth_token: String,
     pub client_id: String,
@@ -18,13 +18,13 @@ pub struct InitPayload {
     pub tenant: TenantInfo,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TenantInfo {
     pub assets_domain: String,
     pub tenant_id: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessPayload {
     pub amount: String,
     pub currency: String,
