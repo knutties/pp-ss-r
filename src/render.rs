@@ -18,51 +18,48 @@ pub fn lang_code(language: &str) -> &'static str {
     }
 }
 
-pub fn render_confirmation(page: &PaymentPage) -> Markup {
-    let amount_display = format_amount(&page.process.currency, &page.process.amount);
+/// Shared document shell: doctype, head, and the Barclaycard header. `content`
+/// is placed inside `<body>` after the header.
+fn layout(title: &str, lang: &str, content: Markup) -> Markup {
     html! {
         (DOCTYPE)
-        html lang=(lang_code(&page.init.language)) {
+        html lang=(lang) {
             head {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1";
-                title { "Payment received" }
+                title { (title) }
                 link rel="stylesheet" href="/assets/style.css";
             }
             body {
                 header.pp-header {
                     img.pp-logo src="/assets/img/barclaycard-logo.png" alt="Barclaycard";
                 }
-                main.pp-main {
-                    section.pp-summary {
-                        h1.pp-title { "Payment received (demo)" }
-                        p.pp-amount { (amount_display) }
-                        p.pp-order-id { "Order: " (page.process.order_id) }
-                        p { "This is a demo confirmation. No real payment was processed." }
-                    }
-                }
+                (content)
             }
         }
     }
 }
 
+pub fn render_confirmation(page: &PaymentPage) -> Markup {
+    let amount_display = format_amount(&page.process.currency, &page.process.amount);
+    let content = html! {
+        main.pp-main {
+            section.pp-summary {
+                h1.pp-title { "Payment received (demo)" }
+                p.pp-amount { (amount_display) }
+                p.pp-order-id { "Order: " (page.process.order_id) }
+                p { "This is a demo confirmation. No real payment was processed." }
+            }
+        }
+    };
+    layout("Payment received", lang_code(&page.init.language), content)
+}
+
 pub fn render_payment_page(page: &PaymentPage) -> Markup {
     let amount_display = format_amount(&page.process.currency, &page.process.amount);
-    html! {
-        (DOCTYPE)
-        html lang=(lang_code(&page.init.language)) {
-            head {
-                meta charset="utf-8";
-                meta name="viewport" content="width=device-width, initial-scale=1";
-                title { "Barclaycard Payment" }
-                link rel="stylesheet" href="/assets/style.css";
-            }
-            body {
-                header.pp-header {
-                    img.pp-logo src="/assets/img/barclaycard-logo.png" alt="Barclaycard";
-                }
-                main.pp-main {
-                    section.pp-summary {
+    let content = html! {
+        main.pp-main {
+            section.pp-summary {
                         h1.pp-title { "Order summary" }
                         p.pp-merchant { (page.process.merchant_id) }
                         @if !page.process.description.is_empty() {
@@ -98,7 +95,6 @@ pub fn render_payment_page(page: &PaymentPage) -> Markup {
                     img.pp-secured src="/assets/img/secured.png" alt="Secured";
                     span { "Payments are secure and encrypted" }
                 }
-            }
-        }
-    }
+    };
+    layout("Barclaycard Payment", lang_code(&page.init.language), content)
 }
