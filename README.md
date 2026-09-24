@@ -6,10 +6,22 @@ assets locally with no runtime CDN dependency.
 
 ## Develop
 
-    nix develop                    # rust toolchain (+ chromium on Linux)
+    nix develop                    # rust toolchain + just (+ chromium on Linux)
     bash scripts/fetch-assets.sh   # one-time: mirror logo/fonts into static/
     cargo run                      # http://127.0.0.1:8080
     BIND_ADDR=127.0.0.1:9099 cargo run   # override the bind address
+
+### With `just`
+
+`just` is in the dev shell (and each recipe wraps `nix develop`, so it also
+works from the host if nix is installed):
+
+    just               # list recipes
+    just run           # run the server on :8080
+    just run 8091      # ...on a different port
+    just test          # full test suite
+    just build         # release binary
+    just assets        # mirror static assets
 
 ## Test
 

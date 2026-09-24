@@ -15,7 +15,7 @@
           browser = if isLinux then [ pkgs.chromium ] else [ ];
         in {
           default = pkgs.mkShell {
-            packages = [ pkgs.cargo pkgs.rustc pkgs.rustfmt pkgs.clippy ] ++ browser;
+            packages = [ pkgs.cargo pkgs.rustc pkgs.rustfmt pkgs.clippy pkgs.just ] ++ browser;
             CHROME_BIN =
               if isLinux
               then "${pkgs.chromium}/bin/chromium"
