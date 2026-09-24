@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PaymentPage {
     pub init: InitPayload,
     pub process: ProcessPayload,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct InitPayload {
     pub client_auth_token: String,
     pub client_id: String,
@@ -18,13 +18,13 @@ pub struct InitPayload {
     pub tenant: TenantInfo,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TenantInfo {
     pub assets_domain: String,
     pub tenant_id: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ProcessPayload {
     pub amount: String,
     pub currency: String,
@@ -68,6 +68,18 @@ pub fn load_sample_checked() -> Result<PaymentPage, String> {
     Ok(page)
 }
 
+/// The validated sample payload, parsed exactly once and cached for the process
+/// lifetime. Handlers that render the sample unchanged borrow this directly;
+/// those that mutate it (e.g. `/order/{id}`) clone it first.
+pub fn sample() -> &'static PaymentPage {
+    static SAMPLE: std::sync::OnceLock<PaymentPage> = std::sync::OnceLock::new();
+    SAMPLE.get_or_init(|| {
+        load_sample_checked().expect("data/order.json must be a valid, complete PaymentPage")
+    })
+}
+
+/// Owned copy of the cached sample. Convenient for tests and callers that need
+/// to mutate the payload.
 pub fn load_sample() -> PaymentPage {
-    load_sample_checked().expect("data/order.json must be a valid, complete PaymentPage")
+    sample().clone()
 }

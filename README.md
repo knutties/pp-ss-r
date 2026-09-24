@@ -65,6 +65,14 @@ Control verbosity with `RUST_LOG` (default `info,actix_server::worker=warn`):
 
     RUST_LOG=debug cargo run
 
+## Security headers
+
+Rendered pages are served with `Cache-Control: no-store` (never cache a
+card-entry page), `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+no-referrer`, and a strict same-origin `Content-Security-Policy`
+(`script-src 'none'`, `frame-ancestors 'none'`). All assets are same-origin,
+so the CSP requires no relaxation.
+
 ## Notes
 
 - `/pay` is a demo stub — no validation, no payment processing, no storage.
