@@ -37,7 +37,37 @@ pub struct ProcessPayload {
     pub metadata: String,
 }
 
-pub fn load_sample() -> PaymentPage {
+impl PaymentPage {
+    /// Rejects payloads whose display-critical fields are blank. Deserialization
+    /// already rejects *missing* keys; this catches *empty* string values, which
+    /// are valid JSON strings but would render a meaningless page (e.g. "Pay £").
+    pub fn validate(&self) -> Result<(), String> {
+        let required = [
+            ("init.merchant_id", &self.init.merchant_id),
+            ("process.amount", &self.process.amount),
+            ("process.currency", &self.process.currency),
+            ("process.order_id", &self.process.order_id),
+            ("process.merchant_id", &self.process.merchant_id),
+        ];
+        for (name, value) in required {
+            if value.trim().is_empty() {
+                return Err(format!("required field `{name}` is blank"));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Parses and validates the embedded sample payload. Returns an error (rather
+/// than panicking) so callers can decide how to surface it.
+pub fn load_sample_checked() -> Result<PaymentPage, String> {
     let raw = include_str!("../data/order.json");
-    serde_json::from_str(raw).expect("data/order.json must be valid PaymentPage JSON")
+    let page: PaymentPage = serde_json::from_str(raw)
+        .map_err(|e| format!("data/order.json is not valid PaymentPage JSON: {e}"))?;
+    page.validate()?;
+    Ok(page)
+}
+
+pub fn load_sample() -> PaymentPage {
+    load_sample_checked().expect("data/order.json must be a valid, complete PaymentPage")
 }
