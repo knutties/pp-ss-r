@@ -58,6 +58,9 @@ the page's `fetch_ms` reflects it:
 
     curl "http://127.0.0.1:8080/order/abc?delay_ms=250"   # fetch_ms ~250
 
+`delay_ms` is clamped to 30s (`MAX_DELAY_MS`) so a stray large value can't tie
+up a worker.
+
 A failed/timed-out fetch renders a `502` error page. (reqwest is HTTP-only here;
 enable its `rustls-tls` feature to fetch external HTTPS.)
 

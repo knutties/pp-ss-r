@@ -14,6 +14,15 @@ const CSP: &str = "default-src 'self'; script-src 'none'; style-src 'self'; \
      img-src 'self'; font-src 'self'; form-action 'self'; \
      base-uri 'none'; frame-ancestors 'none'";
 
+/// Upper bound for the `delay_ms` simulation knob, so a stray large value can't
+/// tie up a worker.
+pub const MAX_DELAY_MS: u64 = 30_000;
+
+/// Clamps a requested simulated delay to [`MAX_DELAY_MS`].
+pub fn clamp_delay(requested: u64) -> u64 {
+    requested.min(MAX_DELAY_MS)
+}
+
 /// Where the render service fetches order data from. Points at the server's own
 /// `/api` by default; set `DATA_BASE_URL` to a real data service to swap it out.
 #[derive(Clone)]
@@ -80,7 +89,7 @@ async fn api_order(
     q: web::Query<DelayQuery>,
 ) -> HttpResponse {
     let start = Instant::now();
-    let delay_ms = q.delay_ms.unwrap_or(0);
+    let delay_ms = clamp_delay(q.delay_ms.unwrap_or(0));
     if delay_ms > 0 {
         actix_web::rt::time::sleep(Duration::from_millis(delay_ms)).await;
     }
