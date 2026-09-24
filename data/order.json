@@ -1,0 +1,26 @@
+{
+  "init": {
+    "client_auth_token": "tkn_c01ec4e522b74886a4a5eb713daa4b16",
+    "client_id": "defaultclient",
+    "environment": "production",
+    "merchant_id": "hamishtest",
+    "return_url": "https://merchant.example.com/checkout/return",
+    "language": "english",
+    "is_payment_link": true,
+    "tenant": {
+      "assets_domain": "https://secure.barclaycardpayments.com",
+      "tenant_id": "barclays"
+    }
+  },
+  "process": {
+    "amount": "0.01",
+    "currency": "GBP",
+    "order_id": "pay_7ee8d7f469d343ecbeef25ae6a04142c",
+    "description": "Test payment",
+    "order_type": "ORDER_PAYMENT",
+    "payment_links_expiry": "2026-09-24T17:14:02Z",
+    "source_object": "ADAPTER_BARCLAYS",
+    "merchant_id": "hamishtest",
+    "metadata": "{}"
+  }
+}

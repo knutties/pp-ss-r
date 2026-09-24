@@ -1,5 +1,7 @@
 use actix_web::{web, HttpResponse};
 
+pub mod model;
+
 pub fn app_config(cfg: &mut web::ServiceConfig) {
     cfg.route("/healthz", web::get().to(healthz));
 }
