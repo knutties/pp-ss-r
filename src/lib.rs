@@ -1,9 +1,10 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub mod model;
 pub mod render;
 
-use crate::model::load_sample;
+use crate::model::{load_sample, PaymentPage};
 use crate::render::{render_confirmation, render_payment_page};
 
 /// Address the server binds to. Defaults to `127.0.0.1:8080`; override via the
@@ -30,23 +31,63 @@ async fn healthz() -> HttpResponse {
         .body("ok")
 }
 
-async fn index() -> HttpResponse {
-    let page = load_sample();
-    html_response(render_payment_page(&page).into_string())
+async fn index(req: HttpRequest) -> HttpResponse {
+    timed_html(&req, load_sample, |p| render_payment_page(p).into_string())
 }
 
-async fn order(path: web::Path<String>) -> HttpResponse {
-    let mut page = load_sample();
-    page.process.order_id = path.into_inner();
-    html_response(render_payment_page(&page).into_string())
+async fn order(req: HttpRequest, path: web::Path<String>) -> HttpResponse {
+    let id = path.into_inner();
+    timed_html(
+        &req,
+        move || {
+            let mut page = load_sample();
+            page.process.order_id = id;
+            page
+        },
+        |p| render_payment_page(p).into_string(),
+    )
 }
 
-async fn pay() -> HttpResponse {
-    let page = load_sample();
-    html_response(render_confirmation(&page).into_string())
+async fn pay(req: HttpRequest) -> HttpResponse {
+    timed_html(&req, load_sample, |p| render_confirmation(p).into_string())
 }
 
-fn html_response(body: String) -> HttpResponse {
+/// Loads the payload, renders it, and emits one structured JSON log line with a
+/// per-phase timing breakdown: `load_ms` (payload deserialization), `render_ms`
+/// (HTML generation), and `total_ms` (whole handler).
+fn timed_html(
+    req: &HttpRequest,
+    load: impl FnOnce() -> PaymentPage,
+    render: impl FnOnce(&PaymentPage) -> String,
+) -> HttpResponse {
+    let start = Instant::now();
+    let page = load();
+    let load_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    let render_start = Instant::now();
+    let body = render(&page);
+    let render_ms = render_start.elapsed().as_secs_f64() * 1000.0;
+
+    let bytes = body.len();
+    let status = 200u16;
+    let total_ms = start.elapsed().as_secs_f64() * 1000.0;
+    let ts_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+
+    tracing::info!(
+        ts_ms,
+        method = %req.method(),
+        path = %req.path(),
+        status,
+        load_ms,
+        render_ms,
+        total_ms,
+        bytes,
+        "request"
+    );
+
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .body(body)

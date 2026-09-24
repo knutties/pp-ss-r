@@ -39,6 +39,20 @@ system Chrome on darwin, nixpkgs chromium on Linux):
     data/order.json sample payload
     static/         style.css, fonts/, img/
 
+## Logging
+
+Each rendered request emits one JSON line to stdout with a per-phase timing
+breakdown (`load_ms` = payload deserialization, `render_ms` = HTML generation,
+`total_ms` = whole handler):
+
+    {"level":"INFO","message":"request","ts_ms":1790271702087,"method":"GET",
+     "path":"/","status":200,"load_ms":0.0097,"render_ms":0.0022,
+     "total_ms":0.0120,"bytes":1597,"target":"pp_ss_r"}
+
+Control verbosity with `RUST_LOG` (default `info,actix_server::worker=warn`):
+
+    RUST_LOG=debug cargo run
+
 ## Notes
 
 - `/pay` is a demo stub — no validation, no payment processing, no storage.
