@@ -25,14 +25,67 @@ works from the host if nix is installed):
 
 ## Test
 
-    cargo test                     # unit + integration
+### Automated (no API key needed)
 
-E2E screenshot (server must be running; `CHROME_BIN` is set by the devShell —
-system Chrome on darwin, nixpkgs chromium on Linux):
+    cargo test          # or: just test
+
+Covers unit + integration, including the checkout flow against a mock Juspay
+API and the 502 failure path.
+
+### Manual: checkout flow against a local mock
+
+Port 8080 may be busy; these use 8099 (server) and 8100 (mock).
+
+1. Start a mock checkout API that returns a session id:
+
+   ```bash
+   python3 - <<'PY' &
+   from http.server import BaseHTTPRequestHandler, HTTPServer
+   import json
+   class H(BaseHTTPRequestHandler):
+       def do_POST(self):
+           self.rfile.read(int(self.headers.get('Content-Length', 0)))
+           b = json.dumps({"id": "sess_demo_123"}).encode()
+           self.send_response(200); self.send_header("Content-Type", "application/json")
+           self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+       def log_message(self, *a): pass
+   HTTPServer(("127.0.0.1", 8100), H).serve_forever()
+   PY
+   ```
+
+2. Run the server pointed at the mock:
+
+   ```bash
+   CHECKOUT_API_BASE=http://127.0.0.1:8100 JUSPAY_API_KEY='Basic test' \
+     BIND_ADDR=127.0.0.1:8099 DATA_BASE_URL=http://127.0.0.1:8099 cargo run
+   ```
+
+3. Open <http://127.0.0.1:8099/>, enter an amount + currency, and submit — you
+   get the payment page for the created session. Or via curl:
+
+   ```bash
+   curl -s -X POST http://127.0.0.1:8099/checkout --data "amount=12.34&currency=GBP" \
+     | grep -o '£12.34\|sess_demo_123'
+   ```
+
+   Watch the server logs for the `checkout_ms` line. Add `?delay_ms=1500` to
+   `/order/{id}` to simulate a slow order fetch.
+
+### Manual: against the real Juspay API
+
+`CHECKOUT_API_BASE` already defaults to the real URL, so just supply your key:
+
+    JUSPAY_API_KEY='Basic <your-value>' BIND_ADDR=127.0.0.1:8099 cargo run
+    # open http://127.0.0.1:8099/ , fill the form, submit
+
+### E2E screenshot
+
+Server must be running; `CHROME_BIN` is set by the devShell (system Chrome on
+darwin, nixpkgs chromium on Linux):
 
     "$CHROME_BIN" --headless --disable-gpu \
         --screenshot=scratch/home.png --window-size=480,900 \
-        http://127.0.0.1:8080
+        http://127.0.0.1:8099
 
 ## Routes
 
