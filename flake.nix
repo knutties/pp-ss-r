@@ -13,9 +13,14 @@
           # On darwin, e2e uses the system Chrome via CHROME_BIN (see scripts/e2e).
           isLinux = pkgs.stdenv.hostPlatform.isLinux;
           browser = if isLinux then [ pkgs.chromium ] else [ ];
+          # native-tls uses OpenSSL on Linux (the system Security framework on
+          # macOS, so these are only strictly needed for Linux dev shells).
+          tls = if isLinux then [ pkgs.pkg-config pkgs.openssl ] else [ ];
         in {
           default = pkgs.mkShell {
-            packages = [ pkgs.cargo pkgs.rustc pkgs.rustfmt pkgs.clippy pkgs.just ] ++ browser;
+            packages =
+              [ pkgs.cargo pkgs.rustc pkgs.rustfmt pkgs.clippy pkgs.just ]
+              ++ browser ++ tls;
             CHROME_BIN =
               if isLinux
               then "${pkgs.chromium}/bin/chromium"

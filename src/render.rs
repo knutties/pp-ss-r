@@ -40,6 +40,32 @@ fn layout(title: &str, lang: &str, content: Markup) -> Markup {
     }
 }
 
+/// Precursor form: collects the amount and currency, then POSTs to /checkout,
+/// which creates a checkout session server-side.
+pub fn render_checkout_form() -> Markup {
+    let content = html! {
+        main.pp-main {
+            section.pp-summary {
+                h1.pp-title { "Start a payment" }
+                form.pp-form method="post" action="/checkout" {
+                    label for="amount" { "Amount" }
+                    input #amount name="amount" type="text" inputmode="decimal" value="1.00" required;
+
+                    label for="currency" { "Currency" }
+                    select #currency name="currency" {
+                        option value="GBP" { "GBP" }
+                        option value="USD" { "USD" }
+                        option value="EUR" { "EUR" }
+                    }
+
+                    button.pp-pay type="submit" { "Create payment" }
+                }
+            }
+        }
+    };
+    layout("Start a payment", "en", content)
+}
+
 /// Rendered when the order data can't be fetched from the data service.
 pub fn render_error() -> Markup {
     let content = html! {
