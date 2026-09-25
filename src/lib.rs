@@ -4,11 +4,12 @@ use serde::Deserialize;
 use std::borrow::Cow;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+pub mod checkout;
 pub mod model;
 pub mod render;
 
 use crate::model::{sample, PaymentPage};
-use crate::render::{render_confirmation, render_error, render_payment_page};
+use crate::render::{render_checkout_form, render_confirmation, render_error, render_payment_page};
 
 const CSP: &str = "default-src 'self'; script-src 'none'; style-src 'self'; \
      img-src 'self'; font-src 'self'; form-action 'self'; \
@@ -45,6 +46,30 @@ struct DelayQuery {
     delay_ms: Option<u64>,
 }
 
+/// Checkout-session API config: the base URL and the `X-API-Key` value.
+#[derive(Clone)]
+pub struct CheckoutConfig {
+    pub base_url: String,
+    pub api_key: String,
+}
+
+impl CheckoutConfig {
+    pub fn from_env() -> Self {
+        Self {
+            base_url: std::env::var("CHECKOUT_API_BASE")
+                .unwrap_or_else(|_| "https://api.bpl.eu5.prod.juspay.io".to_string()),
+            api_key: std::env::var("JUSPAY_API_KEY").unwrap_or_default(),
+        }
+    }
+}
+
+/// Precursor form submission: the amount and currency to charge.
+#[derive(Debug, Deserialize)]
+struct CheckoutForm {
+    amount: String,
+    currency: String,
+}
+
 /// Address the server binds to. Defaults to `127.0.0.1:8080`; override via the
 /// `BIND_ADDR` environment variable (used for e2e when 8080 is occupied).
 pub fn bind_addr() -> String {
@@ -62,6 +87,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.route("/", web::get().to(index));
     cfg.route("/order/{id}", web::get().to(order));
     cfg.route("/pay", web::post().to(pay));
+    cfg.route("/checkout", web::get().to(checkout_form));
+    cfg.route("/checkout", web::post().to(checkout_submit));
     cfg.route("/api/orders/{id}", web::get().to(api_order));
     cfg.service(actix_files::Files::new("/assets", "static"));
 }
@@ -71,6 +98,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 pub fn app_config(cfg: &mut web::ServiceConfig) {
     cfg.app_data(web::Data::new(reqwest::Client::new()));
     cfg.app_data(web::Data::new(DataSource::from_env()));
+    cfg.app_data(web::Data::new(CheckoutConfig::from_env()));
     configure(cfg);
 }
 
@@ -154,6 +182,82 @@ async fn pay(req: HttpRequest) -> HttpResponse {
     timed_local(&req, || Cow::Borrowed(sample()), |p| {
         render_confirmation(p).into_string()
     })
+}
+
+/// Precursor form (amount + currency).
+async fn checkout_form() -> HttpResponse {
+    html(StatusCode::OK, render_checkout_form().into_string())
+}
+
+/// Creates a checkout session server-side from the submitted amount/currency,
+/// then renders the payment page for that session. Logs a `checkout_ms` /
+/// `render_ms` / `total_ms` breakdown; a failed create returns a 502.
+async fn checkout_submit(
+    req: HttpRequest,
+    form: web::Form<CheckoutForm>,
+    client: web::Data<reqwest::Client>,
+    cfg: web::Data<CheckoutConfig>,
+) -> HttpResponse {
+    let s = sample();
+    let merchant_reference = format!("ORDER-{}", &uuid::Uuid::new_v4().simple().to_string()[..12]);
+    let idempotency_key = uuid::Uuid::new_v4().to_string();
+    let request = checkout::build_request(
+        &form.amount,
+        &form.currency,
+        &s.init.merchant_id,
+        &s.init.return_url,
+        &s.init.client_id,
+        &merchant_reference,
+    );
+
+    let start = Instant::now();
+    let result =
+        checkout::create_session(&client, &cfg.base_url, &cfg.api_key, &idempotency_key, &request)
+            .await;
+    let checkout_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    let session = match result {
+        Ok(session) => session,
+        Err(e) => {
+            let total_ms = start.elapsed().as_secs_f64() * 1000.0;
+            tracing::error!(
+                method = %req.method(),
+                path = %req.path(),
+                checkout_ms,
+                total_ms,
+                error = %e,
+                "checkout_failed"
+            );
+            return html(StatusCode::BAD_GATEWAY, render_error().into_string());
+        }
+    };
+
+    let mut page = s.clone();
+    page.process.amount = form.amount.clone();
+    page.process.currency = form.currency.clone();
+    page.process.order_id = session.id.unwrap_or(merchant_reference);
+
+    let render_start = Instant::now();
+    let body = render_payment_page(&page).into_string();
+    let render_ms = render_start.elapsed().as_secs_f64() * 1000.0;
+
+    let bytes = body.len();
+    let status = 200u16;
+    let total_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    tracing::info!(
+        ts_ms = now_ms(),
+        method = %req.method(),
+        path = %req.path(),
+        status,
+        checkout_ms,
+        render_ms,
+        total_ms,
+        bytes,
+        "request"
+    );
+
+    html(StatusCode::OK, body)
 }
 
 /// Fetches the order over HTTP from the data service, renders it, and logs one

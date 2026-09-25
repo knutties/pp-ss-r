@@ -38,10 +38,37 @@ system Chrome on darwin, nixpkgs chromium on Linux):
 
 - `GET  /`                 payment page (fetches the default order)
 - `GET  /order/{id}`       payment page for the given order id
+- `GET  /checkout`         precursor form (amount + currency)
+- `POST /checkout`         create a checkout session, then render the payment page
 - `POST /pay`              demo confirmation (rendered locally, no processing)
 - `GET  /api/orders/{id}`  order data as JSON (the data service)
 - `GET  /healthz`          health check
 - `GET  /assets/*`         static files (css, fonts, images)
+
+## Checkout (create a session)
+
+`GET /checkout` renders a small form (amount + currency). On submit, the server
+calls the Juspay checkout-sessions API **server-side**:
+
+    POST {CHECKOUT_API_BASE}/v1/checkout-sessions
+    X-API-Key: <JUSPAY_API_KEY>
+    Idempotency-Key: <generated uuid>
+
+with a `HOSTED_PAGE` / `AUTH_AND_CAPTURE` payment body (merchant id, return url,
+and branding profile come from the sample). On success it renders the payment
+page for the created session; on failure it returns a `502`. The request log
+gains a `checkout_ms` phase (the API round-trip).
+
+Configure via environment variables:
+
+| Var                 | Default                               | Purpose                          |
+|---------------------|---------------------------------------|----------------------------------|
+| `JUSPAY_API_KEY`    | *(empty)*                             | `X-API-Key` header value         |
+| `CHECKOUT_API_BASE` | `https://api.bpl.eu5.prod.juspay.io`  | checkout API base URL            |
+
+    JUSPAY_API_KEY='Basic <value>' cargo run   # then open /checkout
+
+TLS is via `native-tls` (system Security framework on macOS, OpenSSL on Linux).
 
 ## Data fetch
 
@@ -82,6 +109,7 @@ minute-granularity version (`YYYY.MM.DD.HHMM`), `sha-<short>`, and `latest`.
 
     src/model.rs    serde structs for the payment payload
     src/render.rs   maud templates (compile-time HTML)
+    src/checkout.rs checkout-session API request/response + client
     src/lib.rs      actix routes + app_config
     src/main.rs     server bootstrap (127.0.0.1:8080)
     data/order.json sample payload
