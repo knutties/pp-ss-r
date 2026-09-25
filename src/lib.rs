@@ -84,7 +84,7 @@ pub fn bind_addr_from(override_addr: Option<String>) -> String {
 /// `DataSource` before mounting the routes.
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.route("/healthz", web::get().to(healthz));
-    cfg.route("/", web::get().to(index));
+    cfg.route("/", web::get().to(checkout_form));
     cfg.route("/order/{id}", web::get().to(order));
     cfg.route("/pay", web::post().to(pay));
     cfg.route("/checkout", web::get().to(checkout_form));
@@ -148,19 +148,6 @@ async fn api_order(
     HttpResponse::Ok()
         .content_type("application/json")
         .body(body)
-}
-
-async fn index(
-    req: HttpRequest,
-    client: web::Data<reqwest::Client>,
-    data: web::Data<DataSource>,
-    q: web::Query<DelayQuery>,
-) -> HttpResponse {
-    let id = sample().process.order_id.clone();
-    fetch_and_render(&req, &client, &data, &id, q.delay_ms, |p| {
-        render_payment_page(p).into_string()
-    })
-    .await
 }
 
 async fn order(

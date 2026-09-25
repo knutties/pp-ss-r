@@ -36,10 +36,10 @@ system Chrome on darwin, nixpkgs chromium on Linux):
 
 ## Routes
 
-- `GET  /`                 payment page (fetches the default order)
-- `GET  /order/{id}`       payment page for the given order id
-- `GET  /checkout`         precursor form (amount + currency)
+- `GET  /`                 precursor form (amount + currency) — the index
+- `GET  /checkout`         precursor form (alias of `/`)
 - `POST /checkout`         create a checkout session, then render the payment page
+- `GET  /order/{id}`       payment page for the given order id (fetches its data)
 - `POST /pay`              demo confirmation (rendered locally, no processing)
 - `GET  /api/orders/{id}`  order data as JSON (the data service)
 - `GET  /healthz`          health check

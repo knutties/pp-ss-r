@@ -26,22 +26,15 @@ async fn page_fetches_data_and_renders() {
         App::new().app_data(c).app_data(d).configure(configure)
     });
 
-    let body = reqwest::get(page.url("/"))
+    let body = reqwest::get(page.url("/order/demo_order_42"))
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
     assert!(body.contains("£0.01"), "fetched page must render the amount");
-
-    let order = reqwest::get(page.url("/order/demo_order_42"))
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
     assert!(
-        order.contains("demo_order_42"),
+        body.contains("demo_order_42"),
         "order id from fetched data must render"
     );
 }
@@ -53,6 +46,6 @@ async fn fetch_failure_returns_502() {
         let (c, d) = app_data_for("http://127.0.0.1:1");
         App::new().app_data(c).app_data(d).configure(configure)
     });
-    let resp = reqwest::get(page.url("/")).await.unwrap();
+    let resp = reqwest::get(page.url("/order/x")).await.unwrap();
     assert_eq!(resp.status().as_u16(), 502, "fetch failure surfaces as 502");
 }
